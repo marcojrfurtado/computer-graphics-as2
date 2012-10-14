@@ -1,8 +1,46 @@
+#include <GL/glew.h>
+#ifdef __APPLE__
+#  include <GLUT/glut.h>
+#else
+#  include <GL/glut.h>
+#endif
+
+
+
+
+
 #include "joint.hpp"
 #include <cstdio>
 #include <cstring>
 
 #define EXIT_ERROR_STATUS -1
+
+
+// OpenGL Window attributes
+#define WIN_SIZE 1000
+#define WIN_POS 100
+
+
+// Root element in the hierarchy
+Joint root(true);
+
+// Keyboard input processing routine.
+void keyInput(unsigned char key, int x, int y) {
+
+	FILE *fp;
+	switch(key) {
+		case 'w':
+			fp = fopen("output.bvh","w");
+			fprintf(fp,"HIERARCHY\n");
+			root.print(fp);
+			fclose(fp);
+			break;
+		case 'q':
+			exit(1);
+			break;
+	}
+}
+
 
 
 int main(int argc, char *argv[]) {
@@ -29,7 +67,6 @@ int main(int argc, char *argv[]) {
 
 	// Check if we are reading hierarchy description or motion description
 
-	Joint root(true);
 	if ( !strcmp(next_string,"HIERARCHY") ) {
 		fscanf(bvh_fp," %s",next_string);
 		if ( strcmp(next_string,"ROOT" ) ) {
@@ -44,11 +81,24 @@ int main(int argc, char *argv[]) {
 		return EXIT_ERROR_STATUS;
 	}
 
-	root.pretty_print("\0");
-
-
 	fclose(bvh_fp);
 
+
+	//INIT GLUT PROCEDURES
+
+	glutInit( &argc, argv );
+	glutInitWindowSize( WIN_SIZE, WIN_SIZE );
+	glutInitWindowPosition(WIN_POS, WIN_POS );
+
+	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE  );
+
+	glutCreateWindow("Motion Viewer");
+
+	glutKeyboardFunc(keyInput);
+
+
+
+	glutMainLoop();
 
 	return 0;
 }
