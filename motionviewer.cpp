@@ -38,9 +38,11 @@ Joint root(true);
 // Object representing the camera
 Camera cam;
 
+glm::vec3 pos(0,0,0);
+
 
 // ID 
-GLuint objectId;
+GLuint objectId = 0;
 
 // REcursivefunction used to draw lines in a joint hierarchy
 void draw_lines(Joint *j, glm::vec3 origin) {
@@ -64,9 +66,9 @@ void draw_lines(Joint *j, glm::vec3 origin) {
 			draw_lines(*it,joint_offset);
 		}
 
-		printf(" %lf %lf %lf\n %lf %lf %lf\n\n\n",origin.x,origin.y,origin.z,joint_offset.x,joint_offset.y,joint_offset.z);
 
 		glBegin(GL_LINES);
+		glColor3f(1.0f,0.0,0.0);
 		glVertex3f(origin.x,origin.y,origin.z);
 		glVertex3f(joint_offset.x,joint_offset.y,joint_offset.z);
 		glEnd();
@@ -89,6 +91,7 @@ GLuint create_object_list() {
 
 
 	glEndList();
+	return id;
 }
 
 // Keyboard input processing routine.
@@ -105,10 +108,48 @@ void keyInput(unsigned char key, int x, int y) {
 		case 'q':
 			exit(0);
 			break;
+		case 'T':
+	       		cam.rotate(-10.0,0.0,0.0);
+       			break;
+		case 't':
+			cam.rotate(10.0,0.0,0.0);
+			break;
+		case 'A':
+			cam.rotate(0.0,-10.0,0.0);
+			break;
+		case 'a':
+			cam.rotate(0.0,10.0,0.0);
+			break;
+		case 'C':
+			cam.rotate(0.0,0.0,-10.0);
+			break;
+		case 'c':
+			cam.rotate(0.0,0.0,10.0);
+			break;
+	 	// CAMERA TRANSLATIONS
+		case 'I':
+	       		cam.translate(0.0,0.0,0.1);      
+			break;
+	    	case 'i':
+		       	cam.translate(0.0,0.0,-0.1);
+			break; 
+	 // Switch between projection types
+		default:
+			break;
 	}
+	glutPostRedisplay();
 }
 
 
+// Callback routine for non-ASCII key entry.
+void specialKeyInput(int key, int x, int y)
+{ 
+   if(key == GLUT_KEY_UP) cam.translate(0.0,0.1,0.0);
+   else if(key == GLUT_KEY_DOWN) cam.translate(0.0,-0.1,0.0);
+   else if(key == GLUT_KEY_LEFT) cam.translate(-0.1,0.0,0.0);
+   else if(key == GLUT_KEY_RIGHT) cam.translate(0.1,0.0,0.0);
+   glutPostRedisplay();
+}
 
 int process_file(const char *filename) {
 
@@ -174,8 +215,11 @@ void drawScene(void) {
 	
 	glColor3f(0.0,0.0,0.0);
 
-	glCallList(objectId);
 
+	glTranslatef(pos.x,pos.y,pos.z);
+
+	glCallList(objectId);
+	
 
 	glutSwapBuffers();
 }
@@ -191,6 +235,8 @@ int setup(const char *filename) {
 		return EXIT_ERROR_STATUS;
 
 	objectId = create_object_list();
+
+	pos.z = -8.0;
 
 //	glEnableClientState(GL_VERTEX_ARRAY);
 //	glVertexPointer(3, GL_FLOAT, 0, movedVertexArray);
@@ -224,6 +270,9 @@ int main(int argc, char *argv[]) {
 	
 	if ( setup(argv[1]) == EXIT_ERROR_STATUS )
 		return EXIT_ERROR_STATUS;
+	
+	// Register the callback function for non-ASCII key entry.
+	glutSpecialFunc(specialKeyInput);
 
 	glutKeyboardFunc(keyInput);
 	glutDisplayFunc(drawScene);

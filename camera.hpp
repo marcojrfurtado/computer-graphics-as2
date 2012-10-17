@@ -1,6 +1,8 @@
 
 #include <glm/glm.hpp>
 
+#define PI 3.14159265359
+
 class Camera {
 
 
