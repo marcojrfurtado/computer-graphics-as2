@@ -5,16 +5,17 @@
 #include <vector>
 #include <string>
 #include <cstdio>
-
+#include <glm/glm.hpp>
 
 
 class Joint {
 
 	public:
-		Joint(bool root = false, bool end = false) {
+		Joint(bool root = false, bool end = false, Joint *parent=0) {
 			is_root=root;
 			is_end=end;
 			this->o.x = this->o.y = this->o.z = 0;
+			this->parent = parent;
 		}
 
 		// Reads a joint from the FILE fp.
@@ -41,12 +42,16 @@ class Joint {
 
 		void pretty_print(const char *offset);
 
+		const std::vector<Joint *> & get_children() { return subjoints;   }
+		bool has_children() { return subjoints.size() > 0 ;  }
+
+		const Joint * get_parent() { return parent;  }
+
+		const glm::vec3 get_offset() { return o; }
+
 	private:
 		// OFFSET structure
-		struct offset {
-			double x, y , z;
-		};
-		offset o;
+		glm::vec3 o;
 
 		// CHANNEL TYPES
 		typedef enum {
@@ -64,8 +69,9 @@ class Joint {
 		// Read channels description from the file
 		void read_channels(FILE *fp);
 
-		
-		std::vector<Joint> subjoints;
+		Joint *parent;
+
+		std::vector<Joint *> subjoints;
 		std::string name;
 
 		bool is_root;
@@ -73,7 +79,6 @@ class Joint {
 
 
 };
-
 
 
 

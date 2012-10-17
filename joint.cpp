@@ -20,13 +20,13 @@ bool Joint::process(FILE *fp) {
 	while ( fscanf(fp," %s",next_str) != EOF ) {
 
 		if ( !strcmp(next_str,"JOINT" )  ) {
-			Joint child;
-			child.process(fp);
+			Joint *child = new Joint(false,false,this);
+			child->process(fp);
 			this->subjoints.push_back(child);
 		}	
 		else if (  !strcmp(next_str,"End")  ) {
-			Joint child(false,true);
-			child.process(fp);
+			Joint *child = new Joint(false,true,this);
+			child->process(fp);
 			this->subjoints.push_back(child);
 		}	
 		else if ( !strcmp(next_str,"OFFSET") ) {
@@ -88,10 +88,10 @@ void Joint::pretty_print(const char *offset){
 
 	printf("%s %s\n",offset, this->get_name() );
 
-	std::vector<Joint>::iterator it;
+	std::vector<Joint *>::iterator it;
 
 	for( it = subjoints.begin(); it != subjoints.end(); it++ ) {
-		it->pretty_print(next_offset);
+		(*it)->pretty_print(next_offset);
 	}
 
 
@@ -148,10 +148,10 @@ void Joint::print(FILE *out_fp,const char *offset ) {
 
 	}
 
-	vector<Joint>::iterator itj;
+	vector<Joint *>::iterator itj;
 
 	for(itj=subjoints.begin(); itj !=subjoints.end() ; itj++ ) {
-		itj->print(out_fp,next_offset);
+		(*itj)->print(out_fp,next_offset);
 	}
 	fprintf(out_fp,"%s}\n",offset);
 

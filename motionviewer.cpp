@@ -7,11 +7,11 @@
 
 
 
-
-
 #include "joint.hpp"
+#include "camera.hpp"
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #define EXIT_ERROR_STATUS -1
 
@@ -20,9 +20,76 @@
 #define WIN_SIZE 1000
 #define WIN_POS 100
 
+// Default orientation
+#define X_LEFT -1.0
+#define X_RIGHT 1.0
+#define Y_LEFT -1.0
+#define Y_RIGHT 1.0
+#define NEAR 1.0
+#define FAR 100.0
+
+using namespace std;
+
+
 
 // Root element in the hierarchy
 Joint root(true);
+
+// Object representing the camera
+Camera cam;
+
+
+// ID 
+GLuint objectId;
+
+// REcursivefunction used to draw lines in a joint hierarchy
+void draw_lines(Joint *j, glm::vec3 origin) {
+
+/*	if ( origin == 0 )i
+		origin = j->get_offset();*/
+		
+
+
+
+	vector<Joint *>::const_iterator it;
+	for ( it = j->get_children().begin(); it != j->get_children().end() ; it++ ) {
+
+		glm::vec3 joint_offset = (*it)->get_offset();
+		joint_offset.x+=origin.x;
+		joint_offset.y+=origin.y;
+		joint_offset.z+=origin.z;
+
+
+		if ( (*it)->has_children()  ) {
+			draw_lines(*it,joint_offset);
+		}
+
+		printf(" %lf %lf %lf\n %lf %lf %lf\n\n\n",origin.x,origin.y,origin.z,joint_offset.x,joint_offset.y,joint_offset.z);
+
+		glBegin(GL_LINES);
+		glVertex3f(origin.x,origin.y,origin.z);
+		glVertex3f(joint_offset.x,joint_offset.y,joint_offset.z);
+		glEnd();
+
+
+
+	}
+}
+
+// Creates a display list from the joints
+GLuint create_object_list() {
+
+	GLuint id;
+
+	id = glGenLists(1);
+
+	glNewList(id,GL_COMPILE);	
+
+	draw_lines(&root,root.get_offset());
+
+
+	glEndList();
+}
 
 // Keyboard input processing routine.
 void keyInput(unsigned char key, int x, int y) {
@@ -36,27 +103,20 @@ void keyInput(unsigned char key, int x, int y) {
 			fclose(fp);
 			break;
 		case 'q':
-			exit(1);
+			exit(0);
 			break;
 	}
 }
 
 
 
-int main(int argc, char *argv[]) {
+int process_file(const char *filename) {
 
 	FILE *bvh_fp;
 	char next_string[100];
-
-
-	if ( argc < 2 ) {
-		fprintf(stderr,"Wrong number of arguments.\nCorrect usage: ./modelviewer <BVH filename>\n");
-		return EXIT_ERROR_STATUS;
-	}
-
-
-	if ( ! (bvh_fp = fopen(argv[1],"r") ) ) {
-		fprintf(stderr,"Problem opening file %s.\n",argv[1]);
+	
+	if ( ! (bvh_fp = fopen(filename,"r") ) ) {
+		fprintf(stderr,"Problem opening file %s.\n",filename);
 		return EXIT_ERROR_STATUS;
 	}
 
@@ -83,20 +143,90 @@ int main(int argc, char *argv[]) {
 
 	fclose(bvh_fp);
 
+	return 0;
+
+}
+
+void setCamera() {
+
+	glLoadIdentity();
+	// set the camera
+	gluLookAt(cam.eye.x,cam.eye.y,cam.eye.z,cam.center.x,cam.center.y,cam.center.z,cam.up.x,cam.up.y,cam.up.z);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+//	gluPerspective(90,1 , 1.0, 100);
+	glFrustum(X_LEFT,X_RIGHT,Y_LEFT,Y_RIGHT,NEAR,FAR);
+	glMatrixMode(GL_MODELVIEW);
+
+}
+
+
+// Drawing (display) routine.
+void drawScene(void) {
+
+	// Clear Screen to background color.
+	glClear(GL_COLOR_BUFFER_BIT);
+	
+	setCamera();
+
+	glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+	
+	glColor3f(0.0,0.0,0.0);
+
+	glCallList(objectId);
+
+
+	glutSwapBuffers();
+}
+
+int setup(const char *filename) {
+	
+	// Set background (or clearing) color.
+	glClearColor(1.0, 1.0, 1.0, 0.0);	
+
+	glEnableClientState(GL_VERTEX_ARRAY);
+	
+	if ( process_file(filename)== EXIT_ERROR_STATUS  )
+		return EXIT_ERROR_STATUS;
+
+	objectId = create_object_list();
+
+//	glEnableClientState(GL_VERTEX_ARRAY);
+//	glVertexPointer(3, GL_FLOAT, 0, movedVertexArray);
+	
+}
+
+
+
+int main(int argc, char *argv[]) {
+
+
+
+	if ( argc < 2 ) {
+		fprintf(stderr,"Wrong number of arguments.\nCorrect usage: ./modelviewer <BVH filename>\n");
+		return EXIT_ERROR_STATUS;
+	}
+
+
 
 	//INIT GLUT PROCEDURES
-
 	glutInit( &argc, argv );
-	glutInitWindowSize( WIN_SIZE, WIN_SIZE );
-	glutInitWindowPosition(WIN_POS, WIN_POS );
-
+	
 	glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE  );
 
+	glutInitWindowSize( WIN_SIZE, WIN_SIZE );
+	
+	glutInitWindowPosition(WIN_POS, WIN_POS );
+
+
 	glutCreateWindow("Motion Viewer");
+	
+	if ( setup(argv[1]) == EXIT_ERROR_STATUS )
+		return EXIT_ERROR_STATUS;
 
 	glutKeyboardFunc(keyInput);
-
-
+	glutDisplayFunc(drawScene);
 
 	glutMainLoop();
 
