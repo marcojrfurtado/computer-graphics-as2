@@ -8,6 +8,7 @@
 
 
 #include "joint.hpp"
+#include "motion.hpp"
 #include "camera.hpp"
 #include <cstdio>
 #include <cstring>
@@ -31,18 +32,28 @@
 using namespace std;
 
 
+static std::vector< Motion::frame_data >::const_iterator current_frame_it ;
+
+// Used to start/stop the animation
+bool modePlay = false;
 
 // Root element in the hierarchy
 Joint root(true);
+Motion mt;
 
 // Object representing the camera
 Camera cam;
 
 glm::vec3 pos(0,0,0);
 
+void restore() {
 
-// ID 
-GLuint objectId = 0;
+	// Restart object original position
+	root.restore();
+
+	current_frame_it = mt.get_frame_set().begin();
+
+}
 
 // REcursivefunction used to draw lines in a joint hierarchy
 void draw_lines(Joint *j, glm::vec3 origin) {
@@ -78,21 +89,6 @@ void draw_lines(Joint *j, glm::vec3 origin) {
 	}
 }
 
-// Creates a display list from the joints
-GLuint create_object_list() {
-
-	GLuint id;
-
-	id = glGenLists(1);
-
-	glNewList(id,GL_COMPILE);	
-
-	draw_lines(&root,root.get_offset());
-
-
-	glEndList();
-	return id;
-}
 
 // Keyboard input processing routine.
 void keyInput(unsigned char key, int x, int y) {
@@ -103,6 +99,8 @@ void keyInput(unsigned char key, int x, int y) {
 			fp = fopen("output.bvh","w");
 			fprintf(fp,"HIERARCHY\n");
 			root.print(fp);
+			fprintf(fp,"MOTION\n");
+			mt.print(fp);
 			fclose(fp);
 			break;
 		case 'q':
@@ -133,6 +131,17 @@ void keyInput(unsigned char key, int x, int y) {
 	    	case 'i':
 		       	cam.translate(0.0,0.0,-0.1);
 			break; 
+		// ANIMATION CONTROL
+		case 'p':
+			modePlay=true;
+			break;
+		case 'P':
+			modePlay=false;
+			break;
+		case 's':
+			modePlay=false;
+			restore();
+			break;
 	 // Switch between projection types
 		default:
 			break;
@@ -175,12 +184,26 @@ int process_file(const char *filename) {
 			return EXIT_ERROR_STATUS;
 		}
 		root.process(bvh_fp);
-	} else if ( !strcmp(next_string,"MOTION"  ) ) {
-		printf("To be done");
 	} else {
-		fprintf(stderr,"Wrong file header.\n");
+		fprintf(stderr,"Wrong hierarchy header.\n");
 		return EXIT_ERROR_STATUS;
-	}
+	} 
+	
+	// Test HIERARCHY keyword
+	fscanf(bvh_fp," %s",next_string);
+
+	
+	
+	if ( !strcmp(next_string,"MOTION"  ) ) {
+		mt.set_frame_data_size(root.count_hierarchy_channels());
+		mt.process(bvh_fp);
+
+		// Animation is set to start at the first frame
+		current_frame_it = mt.get_frame_set().begin();
+	} else {
+		fprintf(stderr,"Wrong motion header.\n");
+		return EXIT_ERROR_STATUS;
+	} 
 
 	fclose(bvh_fp);
 
@@ -193,12 +216,51 @@ void setCamera() {
 	glLoadIdentity();
 	// set the camera
 	gluLookAt(cam.eye.x,cam.eye.y,cam.eye.z,cam.center.x,cam.center.y,cam.center.z,cam.up.x,cam.up.y,cam.up.z);
+	
+	
+	// Rotates on the camera
+	//glRotatef(cam.angle.z, 0.0, 0.0, 1.0);
+	//glRotatef(cam.angle.y, 0.0, 1.0, 0.0);
+	//glRotatef(cam.angle.x, 1.0, 0.0, 0.0);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 //	gluPerspective(90,1 , 1.0, 100);
 	glFrustum(X_LEFT,X_RIGHT,Y_LEFT,Y_RIGHT,NEAR,FAR);
 	glMatrixMode(GL_MODELVIEW);
+
+}
+
+
+// Small timer function, which tells glut to redisplay the object
+void Timer( int id) {
+
+	glutPostRedisplay();
+}
+
+
+
+
+
+void processNextFrame() {
+
+
+
+	if  ( ! modePlay )
+		return;
+
+
+	root.motion_transformation(*current_frame_it, (*current_frame_it).begin() );
+
+	// Go to the next frame
+	current_frame_it++;
+
+	// If we reached the end of the animation, we should go back
+	if ( current_frame_it == mt.get_frame_set().end() )
+		restore();
+
+
+
 
 }
 
@@ -211,6 +273,7 @@ void drawScene(void) {
 	
 	setCamera();
 
+
 	glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
 	
 	glColor3f(0.0,0.0,0.0);
@@ -218,10 +281,14 @@ void drawScene(void) {
 
 	glTranslatef(pos.x,pos.y,pos.z);
 
-	glCallList(objectId);
+	processNextFrame();
+
+	draw_lines(&root,root.get_offset());
 	
 
 	glutSwapBuffers();
+
+	glutTimerFunc( mt.get_frame_rate() , Timer, 0);
 }
 
 int setup(const char *filename) {
@@ -234,12 +301,15 @@ int setup(const char *filename) {
 	if ( process_file(filename)== EXIT_ERROR_STATUS  )
 		return EXIT_ERROR_STATUS;
 
-	objectId = create_object_list();
 
-	pos.z = -8.0;
+//	pos.z = 
+	cam.translate(0.0,0.0,40.0);
+
 
 //	glEnableClientState(GL_VERTEX_ARRAY);
 //	glVertexPointer(3, GL_FLOAT, 0, movedVertexArray);
+
+	return 0;
 	
 }
 

@@ -1,4 +1,5 @@
 #include "joint.hpp"
+#include <numeric>
 #include <cstring>
 #include <cstdlib>
 
@@ -45,6 +46,8 @@ bool Joint::process(FILE *fp) {
 			printf("%s\n",next_str);
 	}
 //	if ( ! strcmp(next_str,"")  ) 
+
+	return true;
 
 }
 
@@ -155,4 +158,70 @@ void Joint::print(FILE *out_fp,const char *offset ) {
 	}
 	fprintf(out_fp,"%s}\n",offset);
 
+}
+
+int Joint::count_hierarchy_channels() {
+	int channel_count = 0;
+
+	std::vector<Joint *>::iterator it;
+
+	for( it = subjoints.begin(); it != subjoints.end() ; it++ ) 
+		channel_count+=(*it)->count_hierarchy_channels();
+
+	channel_count+=channels.size();
+
+	return channel_count;
+}
+
+Motion::frame_data::const_iterator Joint::motion_transformation( const Motion::frame_data & data, Motion::frame_data::const_iterator it_cur_transformation ) {
+
+	// End joints have no channels
+	if ( is_end )
+		return it_cur_transformation;
+
+	std::vector<ChannelType>::iterator it_channels;
+
+	// Iterate on the channels
+	for( it_channels = channels.begin() ; it_channels != channels.end(); it_channels++ ) {
+
+		if ( *it_channels  == X_POSITION   ) 
+			this->set_offset((*it_cur_transformation),0,0);
+		else if ( *it_channels == Y_POSITION )
+			this->set_offset(0,(*it_cur_transformation),0);
+		else if ( *it_channels == Z_POSITION )
+			this->set_offset(0,0,(*it_cur_transformation));
+		else if ( *it_channels == X_ROTATION )
+			;
+		else if ( *it_channels == Y_ROTATION )
+			;
+		else if ( *it_channels == Z_ROTATION )
+			;
+
+		it_cur_transformation++;
+
+	}
+
+
+
+	std::vector< Joint * >::iterator it_sub;
+
+	for( it_sub = subjoints.begin() ; it_sub != subjoints.end() ; it_sub++ ) {
+		it_cur_transformation = (*it_sub)->motion_transformation(data,it_cur_transformation);
+	}
+
+	return it_cur_transformation;
+	
+}
+
+
+void Joint::restore() {
+
+	o.x = original.x;
+	o.y = original.x;
+	o.z = original.z;
+
+	std::vector<Joint *>::iterator it;
+	for( it = subjoints.begin() ; it != subjoints.end(); it++ ) {
+		(*it)->restore();
+	}
 }

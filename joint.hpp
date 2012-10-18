@@ -6,7 +6,7 @@
 #include <string>
 #include <cstdio>
 #include <glm/glm.hpp>
-
+#include "motion.hpp"
 
 class Joint {
 
@@ -15,7 +15,9 @@ class Joint {
 			is_root=root;
 			is_end=end;
 			this->o.x = this->o.y = this->o.z = 0;
+			this->original.x = this->original.y = this->original.z = 0;
 			this->parent = parent;
+			this->initialized = false;
 		}
 
 		// Reads a joint from the FILE fp.
@@ -33,6 +35,13 @@ class Joint {
 			this->o.x = x;
 			this->o.y = y;
 			this->o.z = z;
+
+			if ( !initialized ) {
+				this->original.x = x;
+				this->original.y = y;
+				this->original.z = z;
+				this->initialized = true;
+			}
 		}
 
 		const char * get_name() { return name.c_str(); }
@@ -49,9 +58,27 @@ class Joint {
 
 		const glm::vec3 get_offset() { return o; }
 
+		int count_hierarchy_channels();
+
+		// Based on motion information, run the transformations on the hierarchy
+		Motion::frame_data::const_iterator motion_transformation( const Motion::frame_data & data, Motion::frame_data::const_iterator  it_cur_transformation  );
+
+		// Returns all offsets to their original position
+		// Recursive functions, restores all the hierarchy
+		void restore();
+
+		void translate( double x, double y, double z ) {
+			o.x+=x;
+			o.y+=y;
+			o.z+=z;
+		}
+
 	private:
+
 		// OFFSET structure
 		glm::vec3 o;
+		glm::vec3 original;
+		bool initialized;
 
 		// CHANNEL TYPES
 		typedef enum {
