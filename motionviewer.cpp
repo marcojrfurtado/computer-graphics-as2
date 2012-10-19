@@ -263,18 +263,32 @@ void Timer( int id) {
 void processNextFrame() {
 
 
+	static float lambda = 0;
 
 
 
-	root.motion_transformation(*current_frame_it );
+
+	// If the FPS is the default ( lambda == 0 ), we simply show the frames. Otherwise we interpolate between two frames
+	if  (  ( fps > 0 ) && ( (current_frame_it+1) != mt.get_frame_set().end() ) )
+		root.render_transformation(*current_frame_it, *(current_frame_it+1),lambda );
+	else if ( ( fps < 0 ) && ( (current_frame_it+1) != mt.get_frame_set().begin() ) ) {
+		root.render_transformation(*(current_frame_it-1),*current_frame_it,lambda );
+	} else
+		root.render_transformation(*current_frame_it);
 
 	// Go to the next frame, if we are playing
 	if  ( modePlay ) {
 
-		if ( fps > 0 )
-			current_frame_it++;
-		else
-			current_frame_it--;
+		lambda+=(float) abs(fps)/FPS_DEFAULT;
+
+		if ( lambda > 1.0    ) {
+			lambda-=1.0;
+			if ( fps > 0 ) 
+				current_frame_it++;
+			else
+				current_frame_it--;
+
+		}
 	}
 
 	// If we reached the end of the animation, we should go back ( unless we are reversing  it)

@@ -65,7 +65,10 @@ class Joint {
 		int count_hierarchy_channels();
 
 		// Based on motion information, run the transformations on the hierarchy
-		void motion_transformation( const Motion::frame_data & data  );
+		void render_transformation( const Motion::frame_data & data  );
+		
+
+		void render_transformation( const Motion::frame_data & data, const Motion::frame_data & data2, const float lambda  );
 
 		// Returns all offsets to their original position
 		// Recursive functions, restores all the hierarchy
@@ -117,6 +120,8 @@ class Joint {
 		void  RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 );
 		
 		void render_bone(glm::vec3 p1, glm::vec3 p2); 
+
+		void slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda) ;
 
 };
 

@@ -10,6 +10,9 @@
 #  include <GL/glut.h>
 #endif
 
+// Used for our spherical linear interpolation
+#include "quaternion.hpp"
+
 using namespace std;
 
 bool Joint::process(FILE *fp) {	
@@ -190,8 +193,11 @@ int Joint::count_hierarchy_channels() {
 	return channel_count;
 }
 
+void Joint::render_transformation( const Motion::frame_data & data ) {
+	render_transformation(  data, data, 0 );
+}
 
-void Joint::motion_transformation( const Motion::frame_data & data ) {
+void Joint::render_transformation( const Motion::frame_data & data, const Motion::frame_data & data2 , const float lambda ) {
 
 	if ( this->channels.size() == 0 )
 		return;
@@ -200,7 +206,9 @@ void Joint::motion_transformation( const Motion::frame_data & data ) {
 
 
 	if ( this->is_root  ) {
-		glTranslatef(data[0],data[1],data[2]);
+		// Interpolate between data and data2
+		// If lambda == 0, we display only data 
+		glTranslatef(((1-lambda)*data[0] ) + (lambda*data2[0]) ,((1-lambda)*data[1]) + (lambda*data2[1]),((1-lambda)*data[2] + (lambda*data2[2])));
 
 	} else {
 		glTranslatef(this->o.x,this->o.y,this->o.z);
@@ -252,7 +260,7 @@ void Joint::motion_transformation( const Motion::frame_data & data ) {
 	
 
 	for( it_sub = subjoints.begin() ; it_sub != subjoints.end() ; it_sub++ ) {
-		(*it_sub)->motion_transformation(data);
+		(*it_sub)->render_transformation(data,data2,lambda);
 	}
 	
 	glPopMatrix();
@@ -303,6 +311,32 @@ glm::vec3 Joint::get_center() {
 
 	return ret;
 }
+
+void Joint::slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda) 
+{
+	float dotproduct = q1.u.x * q2.u.x + q1.u.y * q2.u.y + q1.u.z * q2.u.z + q1.w * q2.w;
+	float theta, st, sut, sout, coeff1, coeff2;
+
+	// algorithm adapted from Shoemake's paper
+ lambda=lambda/2.0;
+
+	theta = (float) acos(dotproduct);
+	if (theta<0.0) theta=-theta;
+	
+	st = (float) sin(theta);
+	sut = (float) sin(lambda*theta);
+	sout = (float) sin((1-lambda)*theta);
+	coeff1 = sout/st;
+	coeff2 = sut/st;
+
+	qr.u.x = coeff1*q1.u.x + coeff2*q2.u.x;
+	qr.u.y = coeff1*q1.u.y + coeff2*q2.u.y;
+	qr.u.z = coeff1*q1.u.z + coeff2*q2.u.z;
+	qr.w = coeff1*q1.w + coeff2*q2.w;
+
+	qr.Normalize();
+}
+
 
 void  Joint::RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 )
 {
