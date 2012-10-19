@@ -10,8 +10,6 @@
 #  include <GL/glut.h>
 #endif
 
-// Used for our spherical linear interpolation
-#include "quaternion.hpp"
 
 using namespace std;
 
@@ -221,24 +219,87 @@ void Joint::render_transformation( const Motion::frame_data & data, const Motion
 	
 	// Iterate on the channels
 	int i = 0;
+
+	GLdouble rotMatrix[16];
+	double alpha1, alpha2, beta1, beta2, gamma1, gamma2;
 	for( it_channels = channels.begin() ; it_channels != channels.end(); it_channels++ ) {
 		
 
 		if ( *it_channels == X_ROTATION ) {
-			glRotatef(data[this->channel_offset + i ],1.0f,0.0f,0.0f);
-//			printf("rotating [%s.x]: %lf\n",get_name(),data[this->channel_offset + i]);
+//			if ( (lambda == 0.0 ) || DISABLE_SLERP )
+				glRotatef(data[this->channel_offset + i ] ,1.0f,0.0f,0.0f);
+/*			else {
+				alpha1 = data[this->channel_offset + i ];
+				alpha2 = data2[this->channel_offset + i ];
+				Quaternion q1,q2,qr;
+			        q1 = eulerAnglesToQuaternion(data[this->channel_offset + i ],0,0);
+				q2 = eulerAnglesToQuaternion(data2[this->channel_offset + i ],0,0);
+				slerp(q1,q2,qr,lambda);
+
+				qr.to_matrix(rotMatrix);
+
+				glMultMatrixd(rotMatrix);
+			}*/
 		}
 		else if ( *it_channels == Y_ROTATION ) {
-			glRotatef(data[this->channel_offset + i ],0.0f,1.0f,0.0f);
-//			printf("rotating [%s.y]: %lf\n",get_name(),data[this->channel_offset + i]);
+//			if  ( (lambda == 0) || DISABLE_SLERP )
+				glRotatef(data[this->channel_offset + i ],0.0f,1.0f,0.0f);
+/*			else {
+				beta1 = data[this->channel_offset + i ];
+				beta2 = data2[this->channel_offset + i ];
+				Quaternion q1,q2,qr;
+			        q1 = eulerAnglesToQuaternion(0,data[this->channel_offset + i ],0);
+				q2 = eulerAnglesToQuaternion(0,data2[this->channel_offset + i ],0);
+				slerp(q1,q2,qr,lambda);
+
+				qr.to_matrix(rotMatrix);
+
+				glMultMatrixd(rotMatrix);
+			}*/
 		}
 		else if ( *it_channels == Z_ROTATION ) {
-			glRotatef(data[this->channel_offset + i ],0.0f,0.0f,1.0f);
-//			printf("rotating [%s.z]: %lf\n",get_name(),data[this->channel_offset + i]);
+			if ( (lambda == 0) || DISABLE_SLERP )
+				glRotatef(data[this->channel_offset + i ] ,0.0f,0.0f,1.0f);
+			else {
+				gamma1 = data[this->channel_offset + i ];
+				gamma2 = data2[this->channel_offset + i ];
+				Quaternion q1,q2,qr;
+			        q1 = eulerAnglesToQuaternion(0,0,data[this->channel_offset + i ]);
+				q2 = eulerAnglesToQuaternion(0,0,data2[this->channel_offset + i ]);
+				slerp(q1,q2,qr,lambda);
+
+				qr.to_matrix(rotMatrix);
+
+				glMultMatrixd(rotMatrix);
+			}
 		}
 
 		i++;
 	}
+
+/*	if ( (lambda != 0) && !DISABLE_SLERP  ) {
+
+		Quaternion q1,q2,qr;
+		q1 = eulerAnglesToQuaternion(alpha1,beta1,gamma1);
+		q2 = eulerAnglesToQuaternion(alpha2,beta2,gamma2);
+		slerp(q1,q2,qr,lambda);
+
+		qr.to_matrix(rotMatrix);
+
+		printf("( %lf, %lf, %lf)\n",alpha1,beta1,gamma1);
+		printf("( %lf, %lf, %lf)\n",alpha1,beta1,gamma1);
+		printf("( %lf, %lf, %lf %lf)\n",q1.u.x,q1.u.y,q1.u.z,q1.w);
+		printf("( %lf, %lf, %lf %lf)\n",q2.u.x,q2.u.y,q2.u.z,q2.w);
+		printf("( %lf, %lf, %lf %lf)\n",qr.u.x,qr.u.y,qr.u.z,qr.w);
+
+		for( int i = 0; i < 16; i++ ) {
+			printf(" %lf",rotMatrix[i]);
+			if ( i%4 == 3 ) 
+				puts("");
+		}
+		glMultMatrixd(rotMatrix);
+
+	}*/
 #endif
 
 	std::vector< Joint * >::iterator it_sub;
@@ -312,13 +373,52 @@ glm::vec3 Joint::get_center() {
 	return ret;
 }
 
+void Joint::slerp(Quaternion q1, Quaternion q2, Quaternion &qr, double t)
+{
+   float w1, x1, y1, z1, w2, x2, y2, z2;
+   Quaternion q2New;
+   float theta, mult1, mult2;
+
+   w1 = q1.w; x1 = q1.u.x; y1 = q1.u.y; z1 = q1.u.z; 
+   w2 = q2.w; x2 = q2.u.x; y2 = q2.u.y; z2 = q2.u.z;
+   
+   // Reverse the sign of q2 if q1.q2 < 0.
+   if (w1*w2 + x1*x2 + y1*y2 + z1*z2 < 0)  
+   {
+      w2 = -w2; x2 = -x2; y2 = -y2; z2 = -z2;
+   }
+	   
+   theta = acos(w1*w2 + x1*x2 + y1*y2 + z1*z2);
+
+   if (theta > 0.000001) 
+   {
+	  mult1 = sin( (1-t)*theta ) / sin( theta );
+	  mult2 = sin( t*theta ) / sin( theta );
+   }
+
+   // To avoid division by 0 and by very small numbers the approximation of sin(angle)
+   // by angle is used when theta is small (0.000001 is chosen arbitrarily).
+   else
+   {
+      mult1 = 1 - t;
+	  mult2 = t;
+   }
+
+   qr.w =  mult1*w1 + mult2*w2;
+   qr.u.x =  mult1*x1 + mult2*x2;
+   qr.u.y =  mult1*y1 + mult2*y2;
+   qr.u.z =  mult1*z1 + mult2*z2;
+   
+//   return *new Quaternion(x3, y3, z3, w3);
+}/*
+
 void Joint::slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda) 
 {
 	float dotproduct = q1.u.x * q2.u.x + q1.u.y * q2.u.y + q1.u.z * q2.u.z + q1.w * q2.w;
 	float theta, st, sut, sout, coeff1, coeff2;
 
 	// algorithm adapted from Shoemake's paper
- lambda=lambda/2.0;
+	 lambda=lambda/2.0;
 
 	theta = (float) acos(dotproduct);
 	if (theta<0.0) theta=-theta;
@@ -335,8 +435,19 @@ void Joint::slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda)
 	qr.w = coeff1*q1.w + coeff2*q2.w;
 
 	qr.Normalize();
-}
+}*/
 
+Quaternion Joint::eulerAnglesToQuaternion(float alpha, float beta, float gamma)
+{
+   Quaternion *q1, *q2, *q3;
+
+
+   q1 = new Quaternion( cos( (PI/180.0) * (alpha/2.0) ), sin( (PI/180.0) * (alpha/2.0) ), 0.0, 0.0 );
+   q2 = new Quaternion( cos( (PI/180.0) * (beta/2.0) ), 0.0, sin( (PI/180.0) * (beta/2.0) ), 0.0 );
+   q3 = new Quaternion( cos( (PI/180.0) * (gamma/2.0) ), 0.0, 0.0, sin( (PI/180.0) * (gamma/2.0) ) );
+
+   return  (*q1) * ( (*q2) * (*q3) );
+}
 
 void  Joint::RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 )
 {

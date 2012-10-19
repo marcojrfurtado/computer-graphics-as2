@@ -8,8 +8,12 @@
 #include <glm/glm.hpp>
 #include "motion.hpp"
 
+// Used for our spherical linear interpolation
+#include "quaternion.hpp"
 
 //#define JOINT_DISABLE_ROTATIONS
+
+#define DISABLE_SLERP 0
 
 class Joint {
 
@@ -120,8 +124,10 @@ class Joint {
 		void  RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 );
 		
 		void render_bone(glm::vec3 p1, glm::vec3 p2); 
+		
+		Quaternion eulerAnglesToQuaternion(float alpha, float beta, float gamma);
 
-		void slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda) ;
+		void slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda);
 
 };
 

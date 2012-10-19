@@ -281,7 +281,7 @@ void processNextFrame() {
 
 		lambda+=(float) abs(fps)/FPS_DEFAULT;
 
-		if ( lambda > 1.0    ) {
+		if ( lambda >= 1.0    ) {
 			lambda-=1.0;
 			if ( fps > 0 ) 
 				current_frame_it++;
