@@ -11,6 +11,7 @@
 #include "motion.hpp"
 #include "camera.hpp"
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -34,6 +35,14 @@ using namespace std;
 
 static std::vector< Motion::frame_data >::const_iterator current_frame_it ;
 
+
+
+// Initial value for FPS
+#define FPS_DEFAULT 120
+
+// The frame rate defined in the BVH file is ignored
+int fps = FPS_DEFAULT;
+
 // Used to start/stop the animation
 bool modePlay = false;
 
@@ -48,8 +57,9 @@ glm::vec3 pos(0,0,0);
 
 void restore() {
 
-	// Restart object original position
-	root.restore();
+	// Restart object to its original position
+
+//	root.restore();
 
 	current_frame_it = mt.get_frame_set().begin();
 
@@ -62,8 +72,6 @@ void draw_lines(Joint *j, glm::vec3 origin) {
 		origin = j->get_offset();*/
 		
 
-
-
 	vector<Joint *>::const_iterator it;
 	for ( it = j->get_children().begin(); it != j->get_children().end() ; it++ ) {
 
@@ -72,14 +80,11 @@ void draw_lines(Joint *j, glm::vec3 origin) {
 		joint_offset.y+=origin.y;
 		joint_offset.z+=origin.z;
 
-
 		if ( (*it)->has_children()  ) {
 			draw_lines(*it,joint_offset);
 		}
 
-
 		glBegin(GL_LINES);
-		glColor3f(1.0f,0.0,0.0);
 		glVertex3f(origin.x,origin.y,origin.z);
 		glVertex3f(joint_offset.x,joint_offset.y,joint_offset.z);
 		glEnd();
@@ -141,12 +146,21 @@ void keyInput(unsigned char key, int x, int y) {
 		case 's':
 			modePlay=false;
 			restore();
+			fps=FPS_DEFAULT;
+			break;
+		case '+':
+			fps+=10;
+			break;
+		case '-':
+			fps-=10;
 			break;
 	 // Switch between projection types
 		default:
 			break;
 	}
-	glutPostRedisplay();
+   // This avoids changing the animation speed if afer keystrokes
+	if( !modePlay )
+		glutPostRedisplay();
 }
 
 
@@ -157,7 +171,10 @@ void specialKeyInput(int key, int x, int y)
    else if(key == GLUT_KEY_DOWN) cam.translate(0.0,-0.1,0.0);
    else if(key == GLUT_KEY_LEFT) cam.translate(-0.1,0.0,0.0);
    else if(key == GLUT_KEY_RIGHT) cam.translate(0.1,0.0,0.0);
-   glutPostRedisplay();
+   
+   // This avoids changing the animation speed if afer keystrokes
+   if ( !modePlay )
+	   glutPostRedisplay();
 }
 
 int process_file(const char *filename) {
@@ -228,6 +245,7 @@ void setCamera() {
 //	gluPerspective(90,1 , 1.0, 100);
 	glFrustum(X_LEFT,X_RIGHT,Y_LEFT,Y_RIGHT,NEAR,FAR);
 	glMatrixMode(GL_MODELVIEW);
+	glEnable(GL_DEPTH_TEST);
 
 }
 
@@ -246,18 +264,26 @@ void processNextFrame() {
 
 
 
-	if  ( ! modePlay )
-		return;
 
 
-	root.motion_transformation(*current_frame_it, (*current_frame_it).begin() );
+	root.motion_transformation(*current_frame_it );
 
-	// Go to the next frame
-	current_frame_it++;
+	// Go to the next frame, if we are playing
+	if  ( modePlay ) {
 
-	// If we reached the end of the animation, we should go back
+		if ( fps > 0 )
+			current_frame_it++;
+		else
+			current_frame_it--;
+	}
+
+	// If we reached the end of the animation, we should go back ( unless we are reversing  it)
 	if ( current_frame_it == mt.get_frame_set().end() )
 		restore();
+	else if ( ( fps < 0  )  && ( current_frame_it  == mt.get_frame_set().begin()   ) ) {
+		current_frame_it = mt.get_frame_set().end();
+		current_frame_it--;
+	}
 
 
 
@@ -268,9 +294,11 @@ void processNextFrame() {
 // Drawing (display) routine.
 void drawScene(void) {
 
+
 	// Clear Screen to background color.
-	glClear(GL_COLOR_BUFFER_BIT);
-	
+	glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+
 	setCamera();
 
 
@@ -278,17 +306,18 @@ void drawScene(void) {
 	
 	glColor3f(0.0,0.0,0.0);
 
-
 	glTranslatef(pos.x,pos.y,pos.z);
-
+	
 	processNextFrame();
 
-	draw_lines(&root,root.get_offset());
+//	draw_lines(&root,root.get_offset());
 	
 
 	glutSwapBuffers();
 
-	glutTimerFunc( mt.get_frame_rate() , Timer, 0);
+	// Computes the frame time, based on the fps
+	int frametime = 1000/FPS_DEFAULT;
+	glutTimerFunc( frametime , Timer, 0);
 }
 
 int setup(const char *filename) {
@@ -302,8 +331,7 @@ int setup(const char *filename) {
 		return EXIT_ERROR_STATUS;
 
 
-//	pos.z = 
-	cam.translate(0.0,0.0,40.0);
+	cam.translate(0.0,0.0,60.0);
 
 
 //	glEnableClientState(GL_VERTEX_ARRAY);

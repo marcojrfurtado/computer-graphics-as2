@@ -8,6 +8,9 @@
 #include <glm/glm.hpp>
 #include "motion.hpp"
 
+
+//#define JOINT_DISABLE_ROTATIONS
+
 class Joint {
 
 	public:
@@ -18,6 +21,7 @@ class Joint {
 			this->original.x = this->original.y = this->original.z = 0;
 			this->parent = parent;
 			this->initialized = false;
+			this->channel_offset = 0;
 		}
 
 		// Reads a joint from the FILE fp.
@@ -61,11 +65,12 @@ class Joint {
 		int count_hierarchy_channels();
 
 		// Based on motion information, run the transformations on the hierarchy
-		Motion::frame_data::const_iterator motion_transformation( const Motion::frame_data & data, Motion::frame_data::const_iterator  it_cur_transformation  );
+		void motion_transformation( const Motion::frame_data & data  );
 
 		// Returns all offsets to their original position
 		// Recursive functions, restores all the hierarchy
 		void restore();
+
 
 		void translate( double x, double y, double z ) {
 			o.x+=x;
@@ -92,6 +97,7 @@ class Joint {
 
 		// ChannelVector
 		std::vector<ChannelType> channels;
+		int channel_offset;
 
 		// Read channels description from the file
 		void read_channels(FILE *fp);
@@ -104,6 +110,13 @@ class Joint {
 		bool is_root;
 		bool is_end;
 
+		//HELPER functions
+
+		glm::vec3 get_center();
+
+		void  RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 );
+		
+		void render_bone(glm::vec3 p1, glm::vec3 p2); 
 
 };
 

@@ -57,8 +57,8 @@ void Camera::rotate( float angx, float angy, float angz) {
 //	if (angle.y < 0.0) angle.y += 360.0;
 	double yradian = angle.y / ( PI * 180 );
 	if ( yradian > 0.0 ) {
-		center.x = sin(yradian);
-		center.z = -cos(yradian);
+		center.x = sin(yradian) + eye.x;
+		center.z = -cos(yradian) + eye.z;
 
 	}
 	
@@ -68,8 +68,8 @@ void Camera::rotate( float angx, float angy, float angz) {
 //	if (angle.x < 0.0) angle.x += 360.0;
 	double xradian = angle.x / ( PI * 180 );
 	if ( xradian > 0.0 ) {
-		center.y= -sin(xradian);
-		center.z= -cos(xradian);
+		center.y= -sin(xradian) + eye.y;
+		center.z= -cos(xradian) + eye.z;
 		up.z = -sin(xradian);
 		up.y = cos(xradian);
 	}
