@@ -9,13 +9,15 @@
  #define PI 3.14159265359
 #endif
 
+
+// Quaternion class, based on the program quaternionAnimation.cpp, from the Computer Graphics Through OpengGL book code.
 class Quaternion{
 public:
 	Quaternion() {
 		Quaternion(0,0,0,0);
 	}
 
-	Quaternion(double x, double y, double z, double w) {
+	Quaternion(double w,double x, double y, double z) {
 		u.x=x;
 		u.y=y;
 		u.z=z;
@@ -25,28 +27,19 @@ public:
 	double w;
 	glm::vec3 u;
 
-	Quaternion &  operator* (const Quaternion &q)
+	Quaternion  operator* (const Quaternion &q)
 	{
 
-		Quaternion tmp;
+		Quaternion tmp= *this;
 		tmp.u.x = ((w * q.u.x) + (u.x * q.w) + (u.y * q.u.z) - (u.z * q.u.y));
 		tmp.u.y = ((w * q.u.y) - (u.x * q.u.z) + (u.y * q.w) + (u.z * q.u.x));
 		tmp.u.z = ((w * q.u.z) + (u.x * q.u.y) - (u.y * q.u.x) + (u.z * q.w));
 		tmp.w = ((w * q.w) - (u.x * q.u.x) - (u.y * q.u.y) - (u.z * q.u.z));
-		*this = tmp;
 
-		return *this;
+
+		return tmp;
 	}
 
-	inline double Norm()
-	{return sqrt(u.x*u.x+u.y*u.y+u.z*u.z+w*w);}
-
-
-	inline void Normalize()
-	{
-		double norm=Norm();
-		u.x/=norm;u.y/=norm;u.z/=norm;
-	}
 	void to_matrix(double *matrix) 
 	{
 		float wx, wy, wz, xx, yy, yz, xy, xz, zz;
@@ -81,6 +74,34 @@ public:
 		matrix[7] = 0;
 		matrix[11] = 0;
 		matrix[15] = 1;
+	}
+
+	double scale() {
+		return ((u.x*u.x) + (u.y*u.y) + (u.z*u.z));
+	}
+
+	bool is_identity() {
+		return ( w == 1.0 && u.x == 0.0 && u.y == 0.0 && u.z == 0.0 );
+	}
+
+	// RotAxis should be:
+	// double[4], where: {theta(radians), ax,ay,az}
+	void to_rotation_axis(double *rotAxis) {
+		double sc = scale();
+		if (  sc == 0.0 ) {
+			rotAxis[0] = 0.0;
+			rotAxis[1] = 0.0;
+			rotAxis[2] = 0.0;
+			rotAxis[3] = 0.0;
+		} else {
+			rotAxis[0] = 2.0 * acos(w);
+			rotAxis[1] = u.x / sc;
+			rotAxis[2] = u.y / sc;
+			rotAxis[3] = u.z / sc;
+		}
+
+
+
 	}
 };
 

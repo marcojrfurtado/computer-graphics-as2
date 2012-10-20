@@ -18,7 +18,7 @@ public:
 	// Sets the camera to the initial position
 	void startPosition();
 
-	void translate( float x, float y, float z);
+	void translate( float x, float y, float z, bool keep_center=false);
 	
 	void rotate( float angx, float angy, float angz);
 

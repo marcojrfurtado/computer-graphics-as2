@@ -11,6 +11,8 @@
 // Used for our spherical linear interpolation
 #include "quaternion.hpp"
 
+
+// Uncomment this to disable rotations ( debugging )
 //#define JOINT_DISABLE_ROTATIONS
 
 #define DISABLE_SLERP 0
@@ -57,6 +59,7 @@ class Joint {
 		// Writes the joint, and its hierachy, to the file *out_fp
 		void print(FILE *out_fp,const char *offset = "\0" );
 
+		// Debugging print
 		void pretty_print(const char *offset);
 
 		const std::vector<Joint *> & get_children() { return subjoints;   }
@@ -69,10 +72,11 @@ class Joint {
 		int count_hierarchy_channels();
 
 		// Based on motion information, run the transformations on the hierarchy
-		void render_transformation( const Motion::frame_data & data  );
+		void render_transformation( const Motion::frame_data & data , bool original_pose=false );
 		
 
-		void render_transformation( const Motion::frame_data & data, const Motion::frame_data & data2, const float lambda  );
+		// Render this joint and all its subjoints using frames data and data2 ( interpolated )
+		void render_transformation( const Motion::frame_data & data, const Motion::frame_data & data2, const float lambda , bool original_pose=false );
 
 		// Returns all offsets to their original position
 		// Recursive functions, restores all the hierarchy
@@ -111,9 +115,14 @@ class Joint {
 
 		Joint *parent;
 
+		
 		std::vector<Joint *> subjoints;
+		
+		// Name of this joint
 		std::string name;
 
+		// The root and the end elementsin the hierachy are also considered joints in this
+		// implementation.
 		bool is_root;
 		bool is_end;
 
@@ -121,12 +130,11 @@ class Joint {
 
 		glm::vec3 get_center();
 
-		void  RenderBone( float x0, float y0, float z0, float x1, float y1, float z1 );
-		
+		// Render a a line between p1 and p2
 		void render_bone(glm::vec3 p1, glm::vec3 p2); 
 		
-		Quaternion eulerAnglesToQuaternion(float alpha, float beta, float gamma);
-
+		
+		// Spherical interpolation, used for rotations
 		void slerp(Quaternion q1, Quaternion q2, Quaternion &qr , double lambda);
 
 };

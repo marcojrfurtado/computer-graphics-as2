@@ -13,11 +13,21 @@ bool Motion::process( FILE *fp ) {
 
 		double next_double;
 
-		for( int j = 0; j < this->frame_data_size; j++ ) { 
+		double position[3];
+
+
+		for( int j = 0; j < this->frame_data_size; j++ ) {	
 			fscanf(fp," %lf",&next_double);
 			frame_set[i].push_back(next_double);
+
+			if ( j < 3 )
+				position[j] = next_double;
 		}
+		update_boundaries(position);
+		add_mean_vertex(position);
+		
 	}
+	compute_mean_vertex();
 
 
 
@@ -43,5 +53,17 @@ void Motion::print( FILE *out_fp ) {
 		}
 		fprintf(out_fp,"\n");
 	}
+
+}
+
+void Motion::update_boundaries(double *pos) {
+
+	max.x = pos[0] > max.x? pos[0] : max.x;
+	max.y = pos[1] > max.y? pos[1] : max.y;
+	max.z = pos[2] > max.z? pos[2] : max.z;
+	
+	min.x = pos[0] < min.x? pos[0] : min.x;
+	min.y = pos[1] < min.y? pos[1] : min.y;
+	min.z = pos[2] < min.z? pos[2] : min.z;
 
 }

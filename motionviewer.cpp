@@ -28,23 +28,31 @@
 #define Y_LEFT -1.0
 #define Y_RIGHT 1.0
 #define NEAR 1.0
-#define FAR 100.0
+#define FAR 150.0
+#define PROJECTIVE_OFFSET 50.0
 
 using namespace std;
 
 
+// Point to the frame currently being rendered
 static std::vector< Motion::frame_data >::const_iterator current_frame_it ;
 
 
 
-// Initial value for FPS
-#define FPS_DEFAULT 120
+// Value for FPS
 
+#define FPS_DEFAULT 120
 // The frame rate defined in the BVH file is ignored
+// This frame rate is virtual, it defines how we interpolate the frames
 int fps = FPS_DEFAULT;
+
+// DEBUGGING TOOL
+// press 'f' to show the fps on the screen
+bool show_fps = false;
 
 // Used to start/stop the animation
 bool modePlay = false;
+bool pause_animation = false;
 
 // Root element in the hierarchy
 Joint root(true);
@@ -59,41 +67,10 @@ void restore() {
 
 	// Restart object to its original position
 
-//	root.restore();
 
 	current_frame_it = mt.get_frame_set().begin();
 
 }
-
-// REcursivefunction used to draw lines in a joint hierarchy
-void draw_lines(Joint *j, glm::vec3 origin) {
-
-/*	if ( origin == 0 )i
-		origin = j->get_offset();*/
-		
-
-	vector<Joint *>::const_iterator it;
-	for ( it = j->get_children().begin(); it != j->get_children().end() ; it++ ) {
-
-		glm::vec3 joint_offset = (*it)->get_offset();
-		joint_offset.x+=origin.x;
-		joint_offset.y+=origin.y;
-		joint_offset.z+=origin.z;
-
-		if ( (*it)->has_children()  ) {
-			draw_lines(*it,joint_offset);
-		}
-
-		glBegin(GL_LINES);
-		glVertex3f(origin.x,origin.y,origin.z);
-		glVertex3f(joint_offset.x,joint_offset.y,joint_offset.z);
-		glEnd();
-
-
-
-	}
-}
-
 
 // Keyboard input processing routine.
 void keyInput(unsigned char key, int x, int y) {
@@ -107,6 +84,12 @@ void keyInput(unsigned char key, int x, int y) {
 			fprintf(fp,"MOTION\n");
 			mt.print(fp);
 			fclose(fp);
+			break;
+		case 'f':
+			show_fps=true;
+			break;
+		case 'F':
+			show_fps=false;
 			break;
 		case 'q':
 			exit(0);
@@ -139,9 +122,10 @@ void keyInput(unsigned char key, int x, int y) {
 		// ANIMATION CONTROL
 		case 'p':
 			modePlay=true;
+			pause_animation=false;
 			break;
 		case 'P':
-			modePlay=false;
+			pause_animation=true;
 			break;
 		case 's':
 			modePlay=false;
@@ -154,7 +138,6 @@ void keyInput(unsigned char key, int x, int y) {
 		case '-':
 			fps-=10;
 			break;
-	 // Switch between projection types
 		default:
 			break;
 	}
@@ -177,6 +160,8 @@ void specialKeyInput(int key, int x, int y)
 	   glutPostRedisplay();
 }
 
+
+// Process BVH file. Calls the Joint and Motion object to parse most of the content
 int process_file(const char *filename) {
 
 	FILE *bvh_fp;
@@ -228,6 +213,7 @@ int process_file(const char *filename) {
 
 }
 
+// Position camera
 void setCamera() {
 
 	glLoadIdentity();
@@ -236,9 +222,11 @@ void setCamera() {
 	
 	
 	// Rotates on the camera
-	//glRotatef(cam.angle.z, 0.0, 0.0, 1.0);
-	//glRotatef(cam.angle.y, 0.0, 1.0, 0.0);
-	//glRotatef(cam.angle.x, 1.0, 0.0, 0.0);
+	glTranslatef(cam.eye.x,cam.eye.y,cam.eye.z);
+	glRotatef(cam.angle.z, 0.0, 0.0, 1.0);
+	glRotatef(cam.angle.y, 0.0, 1.0, 0.0);
+	glRotatef(cam.angle.x, 1.0, 0.0, 0.0);
+	glTranslatef(-cam.eye.x,-cam.eye.y,-cam.eye.z);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -259,7 +247,7 @@ void Timer( int id) {
 
 
 
-
+// Render next frame
 void processNextFrame() {
 
 
@@ -270,25 +258,26 @@ void processNextFrame() {
 
 	// If the FPS is the default ( lambda == 0 ), we simply show the frames. Otherwise we interpolate between two frames
 	if  (  ( fps > 0 ) && ( (current_frame_it+1) != mt.get_frame_set().end() ) )
-		root.render_transformation(*current_frame_it, *(current_frame_it+1),lambda );
+		root.render_transformation(*current_frame_it, *(current_frame_it+1),lambda, !modePlay );
 	else if ( ( fps < 0 ) && ( (current_frame_it+1) != mt.get_frame_set().begin() ) ) {
-		root.render_transformation(*(current_frame_it-1),*current_frame_it,lambda );
+		root.render_transformation(*current_frame_it,*(current_frame_it-1),lambda , !modePlay );
 	} else
-		root.render_transformation(*current_frame_it);
+		root.render_transformation(*current_frame_it,  !modePlay);
 
 	// Go to the next frame, if we are playing
-	if  ( modePlay ) {
+	if  ( modePlay && !pause_animation ) {
 
 		lambda+=(float) abs(fps)/FPS_DEFAULT;
 
-		if ( lambda >= 1.0    ) {
+		while ( lambda >= 1.0    ) {
 			lambda-=1.0;
-			if ( fps > 0 ) 
+			if ( ( fps > 0 ) && ( current_frame_it != mt.get_frame_set().end() ) ) 
 				current_frame_it++;
-			else
+			else if ( current_frame_it != mt.get_frame_set().begin()   )
 				current_frame_it--;
 
 		}
+
 	}
 
 	// If we reached the end of the animation, we should go back ( unless we are reversing  it)
@@ -302,6 +291,24 @@ void processNextFrame() {
 
 
 
+}
+
+
+// Used for debugging display the FPS on the screen. Use 'F' and 'f' to switch it off and on, respectively.
+void draw_fps_message() {
+
+	glPushMatrix();
+	glRasterPos2f(0.0,0.0);
+
+	char message[15];
+	sprintf(message,"fps: %d",fps);
+
+	int i = 0;
+	while ( *(message +i ) ) {
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *(message+(i++)));
+//		glutStrokeCharacter(GLUT_STROKE_ROMAN,*(message+(i++)));
+	}
+	glPopMatrix();
 }
 
 
@@ -324,8 +331,10 @@ void drawScene(void) {
 	
 	processNextFrame();
 
-//	draw_lines(&root,root.get_offset());
-	
+	// Only for debugging purposes
+	if ( show_fps )
+		draw_fps_message();	
+
 
 	glutSwapBuffers();
 
@@ -334,6 +343,8 @@ void drawScene(void) {
 	glutTimerFunc( frametime , Timer, 0);
 }
 
+
+// INTIAL procedures
 int setup(const char *filename) {
 	
 	// Set background (or clearing) color.
@@ -345,11 +356,11 @@ int setup(const char *filename) {
 		return EXIT_ERROR_STATUS;
 
 
-	cam.translate(0.0,0.0,60.0);
+	// Initial camera positioning ( Based on motion data)
+	cam.center = mt.get_mean();
+	cam.translate((mt.get_max().x+mt.get_min().x)/2,(mt.get_max().y+mt.get_min().y)/2,mt.get_max().z+PROJECTIVE_OFFSET,true);
 
 
-//	glEnableClientState(GL_VERTEX_ARRAY);
-//	glVertexPointer(3, GL_FLOAT, 0, movedVertexArray);
 
 	return 0;
 	
